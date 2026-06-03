@@ -947,10 +947,10 @@
   function calcSplits(amt) {
     return {
       income:   amt,
-      expenses: +(amt * 0.50).toFixed(2),
+      expenses: +(amt * 0.55).toFixed(2),
       owner:    +(amt * 0.25).toFixed(2),
-      profit:   +(amt * 0.10).toFixed(2),
-      tax:      +(amt * 0.15).toFixed(2),
+      profit:   +(amt * 0.15).toFixed(2),
+      tax:      +(amt * 0.05).toFixed(2),
     };
   }
 
