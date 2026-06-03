@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>LASA Cash Control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green: #4ade80;
+      --green-dark: #166534;
+      --green-dim: rgba(74,222,128,0.12);
+      --orange: #fb923c;
+      --blue: #60a5fa;
+      --purple: #a78bfa;
+      --pink: #f472b6;
+      --red: #ef4444;
+      --bg: #070c0a;
+      --bg2: #0c1510;
+      --text: #d4f0e0;
+      --muted: #4a7a5c;
+      --border: rgba(74,222,128,0.15);
+      --mono: 'Share Tech Mono', monospace;
+      --sans: 'Barlow', sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+      overscroll-behavior: none;
+    }
+
+    #app {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      position: relative;
+      background: var(--bg);
+    }
+
+    #app::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      max-width: 480px;
+      margin: 0 auto;
+      background-image:
+        linear-gradient(rgba(74,222,128,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(74,222,128,0.04) 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: linear-gradient(180deg, #040a06 0%, #070f09 100%);
+      border-bottom: 1px solid var(--green);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 30px rgba(74,222,128,0.1);
+    }
+
+    .logo-wrap { display: flex; align-items: center; gap: 10px; }
+
+    .logo-box {
+      width: 40px; height: 40px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, #0d2e18, #1a5c32);
+      border: 1.5px solid var(--green);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      box-shadow: 0 0 16px rgba(74,222,128,0.25), inset 0 1px 0 rgba(74,222,128,0.2);
+    }
+
+    .logo-box span:first-child { font-family: var(--mono); font-size: 10px; font-weight: 900; color: var(--green); letter-spacing: 1px; }
+    .logo-box span:last-child  { font-family: var(--mono); font-size: 7px; color: #2a6640; margin-top: -1px; }
+
+    .logo-text h1 { font-family: var(--mono); font-size: 14px; color: var(--green); letter-spacing: 3px; line-height: 1; }
+    .logo-text p  { font-family: var(--mono); font-size: 8px; color: var(--muted); letter-spacing: 2px; margin-top: 2px; }
+
+    .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+
+    .today-badge {
+      background: var(--green-dim);
+      border: 1px solid rgba(74,222,128,0.3);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--green);
+    }
+
+    .sync-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-family: var(--mono); font-size: 9px;
+      display: flex; align-items: center; gap: 4px;
+      padding: 0; transition: color 0.2s;
+    }
+    .sync-btn:hover { color: var(--green); }
+    .sync-btn.syncing { color: var(--green); animation: pulse 1s infinite; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinning { animation: spin 1s linear infinite; display: inline-block; }
+
+    /* ── SHARED BANNER ── */
+    .shared-banner {
+      background: rgba(96,165,250,0.06);
+      border-bottom: 1px solid rgba(96,165,250,0.12);
+      padding: 7px 16px;
+      font-family: var(--mono); font-size: 10px; color: #60a5fa99;
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    /* ── ALLOCATION OVERDUE BANNER ── */
+    .overdue-banner {
+      display: none;
+      background: linear-gradient(135deg, #3a0a0a, #5c1010);
+      border-bottom: 2px solid var(--red);
+      padding: 10px 16px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: #ffaaaa;
+      text-align: center;
+      animation: overduePulse 2s ease-in-out infinite;
+    }
+    .overdue-banner.show { display: block; }
+    @keyframes overduePulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+
+    /* ── NAV ── */
+    .nav {
+      display: flex;
+      background: rgba(0,0,0,0.6);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 63px;
+      z-index: 99;
+    }
+
+    .nav-btn {
+      flex: 1; padding: 8px 4px;
+      border: none; background: transparent;
+      color: var(--muted); cursor: pointer;
+      font-family: var(--sans); font-size: 10px; font-weight: 600;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 2px;
+    }
+    .nav-btn .nav-icon { font-size: 17px; line-height: 1; }
+    .nav-btn.active { color: var(--green); border-bottom-color: var(--green); }
+
+    /* ── CONTENT ── */
+    .content { padding: 18px 16px 100px; position: relative; z-index: 1; }
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* ── CARDS ── */
+    .card {
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px; padding: 14px; margin-bottom: 12px;
+    }
+    .card-green { background: rgba(74,222,128,0.04); border-color: rgba(74,222,128,0.2); }
+    .card-blue  { background: rgba(96,165,250,0.06); border-color: rgba(96,165,250,0.2); }
+    .card-red   { background: rgba(239,68,68,0.06); border-color: rgba(239,68,68,0.3); }
+
+    /* ── STAT GRID ── */
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .stat-box {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px; padding: 12px 8px; text-align: center;
+    }
+    .stat-val { font-family: var(--mono); font-size: 13px; font-weight: bold; }
+    .stat-lbl { font-size: 9px; color: var(--muted); margin-top: 4px; font-family: var(--mono); }
+
+    /* ── SECTION LABEL ── */
+    .section-label {
+      font-family: var(--mono); font-size: 10px;
+      color: var(--green); letter-spacing: 2px; margin-bottom: 10px;
+    }
+
+    /* ── PROGRESS BARS ── */
+    .pf-row { margin-bottom: 10px; }
+    .pf-row-top { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .pf-label  { font-family: var(--mono); font-size: 11px; }
+    .pf-amount { font-family: var(--mono); font-size: 11px; font-weight: bold; }
+    .pf-bar-bg { height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; }
+    .pf-bar { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+
+    /* ── ACCOUNT CARDS ── */
+    .account-card {
+      border-radius: 12px; padding: 13px; margin-bottom: 8px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-left-width: 4px; border-left-style: solid;
+      background: rgba(255,255,255,0.025);
+      border-top: 1px solid rgba(255,255,255,0.05);
+      border-right: 1px solid rgba(255,255,255,0.05);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .account-info h3 { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+    .account-info p  { font-size: 10px; color: var(--muted); margin-top: 2px; font-family: var(--mono); }
+    .account-pct {
+      font-size: 9px; font-family: var(--mono);
+      padding: 2px 6px; border-radius: 10px; border: 1px solid;
+    }
+    .account-amount { font-family: var(--mono); font-size: 20px; font-weight: bold; }
+
+    /* ── FORM ── */
+    .form-label {
+      font-family: var(--mono); font-size: 10px;
+      color: var(--muted); letter-spacing: 2px;
+      display: block; margin-bottom: 7px;
+    }
+
+    .amount-input {
+      width: 100%;
+      background: rgba(74,222,128,0.05);
+      border: 1px solid rgba(74,222,128,0.3);
+      border-radius: 12px; padding: 16px;
+      color: var(--green); font-size: 34px;
+      font-family: var(--mono); outline: none;
+      text-align: center; font-weight: bold;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      margin-bottom: 14px;
+    }
+    .amount-input:focus { border-color: var(--green); box-shadow: 0 0 20px rgba(74,222,128,0.15); }
+    .amount-input::placeholder { color: rgba(74,222,128,0.25); }
+
+    .type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .type-btn {
+      padding: 14px; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.03);
+      color: var(--muted); cursor: pointer;
+      font-family: var(--sans); font-size: 14px; font-weight: 700;
+      transition: all 0.2s;
+    }
+    .type-btn.active { border: 2px solid var(--green); background: rgba(74,222,128,0.1); color: var(--green); }
+
+    .note-input {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 13px 14px;
+      color: var(--text); font-size: 14px;
+      font-family: var(--sans); outline: none;
+      margin-bottom: 16px; transition: border-color 0.2s;
+    }
+    .note-input:focus { border-color: rgba(74,222,128,0.4); }
+    .note-input::placeholder { color: var(--muted); }
+
+    /* Split preview */
+    .split-preview {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px; padding: 12px; margin-bottom: 16px;
+    }
+    .split-row {
+      display: flex; justify-content: space-between;
+      padding: 5px 0; font-family: var(--mono); font-size: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .split-row:last-child { border-bottom: none; }
+
+    /* Buttons */
+    .btn-primary {
+      width: 100%; padding: 15px;
+      background: linear-gradient(135deg, #0f4d23, #1a8c3c, #4ade80);
+      border: none; border-radius: 12px;
+      color: #000; font-size: 15px; font-weight: 900;
+      font-family: var(--sans); cursor: pointer;
+      letter-spacing: 1px;
+      box-shadow: 0 4px 20px rgba(74,222,128,0.25);
+      transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(74,222,128,0.35); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { background: rgba(74,222,128,0.2); color: rgba(0,0,0,0.4); cursor: wait; box-shadow: none; transform: none; }
+
+    .btn-secondary {
+      width: 100%; padding: 12px;
+      background: rgba(74,222,128,0.08);
+      border: 1px solid rgba(74,222,128,0.25);
+      border-radius: 11px; color: var(--green);
+      font-size: 12px; font-weight: 700;
+      font-family: var(--sans); cursor: pointer;
+      letter-spacing: 0.5px; transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+    }
+    .btn-secondary:hover { background: rgba(74,222,128,0.14); }
+
+    .btn-blue {
+      width: 100%; padding: 13px;
+      background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+      border: none; border-radius: 11px;
+      color: white; font-size: 13px; font-weight: 700;
+      font-family: var(--sans); cursor: pointer;
+      transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+    }
+
+    .btn-red {
+      width: 100%; padding: 13px;
+      background: linear-gradient(135deg, #7f1d1d, #dc2626);
+      border: none; border-radius: 11px;
+      color: white; font-size: 13px; font-weight: 700;
+      font-family: var(--sans); cursor: pointer;
+      transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+    }
+
+    .btn-ghost-red {
+      background: none; border: 1px solid rgba(239,68,68,0.4);
+      border-radius: 8px; color: #ef4444;
+      font-family: var(--mono); font-size: 10px;
+      padding: 5px 9px; cursor: pointer;
+      transition: all 0.2s; white-space: nowrap;
+    }
+    .btn-ghost-red:hover { background: rgba(239,68,68,0.1); }
+
+    /* ── HISTORY ITEMS ── */
+    .history-item {
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px; padding: 12px; margin-bottom: 8px;
+    }
+    .history-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .history-amount { font-family: var(--mono); font-size: 20px; font-weight: bold; color: var(--green); }
+    .history-meta   { font-family: var(--mono); font-size: 9px; color: var(--muted); margin-top: 2px; }
+    .history-note   { font-size: 11px; color: #9db8a8; margin-top: 3px; }
+    .history-right  { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+
+    .type-pill {
+      border-radius: 20px; padding: 3px 9px;
+      font-family: var(--mono); font-size: 10px; font-weight: bold; white-space: nowrap;
+    }
+    .type-pill.card { background: rgba(96,165,250,0.12); border: 1px solid rgba(96,165,250,0.3); color: var(--blue); }
+    .type-pill.cash { background: rgba(251,146,60,0.12); border: 1px solid rgba(251,146,60,0.3); color: var(--orange); }
+
+    .splits-mini { display: grid; grid-template-columns: repeat(4,1fr); gap: 4px; }
+    .split-mini-box { border-radius: 7px; padding: 5px 3px; text-align: center; }
+    .split-mini-box .s-label { font-family: var(--mono); font-size: 8px; }
+    .split-mini-box .s-val   { font-family: var(--mono); font-size: 10px; font-weight: bold; margin-top: 1px; }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.92); z-index: 200;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: linear-gradient(160deg, #060e08, #0b1a0e);
+      border: 2px solid var(--green);
+      border-radius: 22px; padding: 24px;
+      max-width: 340px; width: 100%;
+      box-shadow: 0 0 60px rgba(74,222,128,0.2);
+      animation: slideUp 0.25s ease;
+    }
+
+    .modal.modal-danger {
+      border-color: var(--red);
+      background: linear-gradient(160deg, #0e0505, #1a0808);
+      box-shadow: 0 0 60px rgba(239,68,68,0.25);
+    }
+
+    .modal.modal-warn {
+      border-color: var(--orange);
+      background: linear-gradient(160deg, #0e0805, #1a1008);
+      box-shadow: 0 0 60px rgba(251,146,60,0.2);
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    .modal-icon  { font-size: 40px; text-align: center; margin-bottom: 8px; }
+    .modal-title { font-family: var(--mono); font-size: 16px; color: var(--green); text-align: center; margin-bottom: 4px; }
+    .modal-title.red { color: var(--red); }
+    .modal-title.orange { color: var(--orange); }
+    .modal-sub { font-family: var(--mono); font-size: 10px; color: var(--muted); text-align: center; margin-bottom: 16px; }
+    .modal-body { font-family: var(--mono); font-size: 12px; color: #ccc; text-align: center; margin-bottom: 16px; line-height: 1.7; }
+
+    .modal-alloc-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 12px; margin-bottom: 6px; border-radius: 10px;
+    }
+    .modal-alloc-left  { display: flex; align-items: center; gap: 8px; }
+    .modal-alloc-name  { font-size: 11px; font-weight: 700; font-family: var(--mono); }
+    .modal-alloc-sub   { font-size: 9px; color: var(--muted); font-family: var(--mono); }
+    .modal-alloc-amt   { font-family: var(--mono); font-size: 15px; font-weight: bold; }
+
+    .modal-tip { font-family: var(--mono); font-size: 10px; color: var(--muted); text-align: center; margin: 12px 0 16px; }
+
+    .modal-btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+
+    .btn-confirm-red {
+      padding: 12px; background: linear-gradient(135deg, #7f1d1d, #dc2626);
+      border: none; border-radius: 11px; color: white;
+      font-size: 13px; font-weight: 700; font-family: var(--sans);
+      cursor: pointer; transition: all 0.2s;
+    }
+
+    .btn-cancel {
+      padding: 12px; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 11px; color: var(--muted);
+      font-size: 13px; font-weight: 700; font-family: var(--sans);
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-cancel:hover { background: rgba(255,255,255,0.09); }
+
+    .btn-confirm-alloc {
+      padding: 12px; background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+      border: none; border-radius: 11px; color: white;
+      font-size: 13px; font-weight: 700; font-family: var(--sans);
+      cursor: pointer;
+    }
+
+    /* ── LOCKED RECORD OVERLAY ── */
+    #locked-record {
+      display: none;
+      background: rgba(60,0,0,0.97);
+      border: 2px solid var(--red);
+      border-radius: 18px;
+      padding: 28px 20px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    #locked-record.show { display: block; }
+    .lock-icon { font-size: 50px; margin-bottom: 12px; }
+    .lock-title { font-family: var(--mono); font-size: 16px; color: var(--red); font-weight: bold; margin-bottom: 10px; letter-spacing: 2px; }
+    .lock-body  { font-family: var(--mono); font-size: 11px; color: #ffaaaa; line-height: 1.8; margin-bottom: 18px; }
+
+    /* ── TOAST ── */
+    .toast {
+      display: none; position: fixed;
+      bottom: 28px; left: 50%; transform: translateX(-50%);
+      padding: 10px 20px; border-radius: 20px;
+      font-family: var(--mono); font-size: 12px; color: white;
+      z-index: 300; white-space: nowrap;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      animation: fadeInUp 0.2s ease;
+    }
+    @keyframes fadeInUp { from { opacity:0; transform:translateX(-50%) translateY(10px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+    .toast.show { display: block; }
+    .toast.success { background: #0d3a1a; border: 1px solid var(--green); }
+    .toast.error   { background: #3a0d0d; border: 1px solid #ef4444; }
+
+    /* ── RULES ── */
+    .rule-row { display: flex; gap: 8px; margin-bottom: 7px; font-size: 11px; color: #8db8a0; font-family: var(--mono); }
+    .rule-arrow { color: var(--green); flex-shrink: 0; }
+
+    /* ── EMPTY STATE ── */
+    .empty { text-align: center; padding: 60px 0; color: var(--muted); font-family: var(--mono); }
+    .empty .e-icon { font-size: 36px; margin-bottom: 12px; }
+    .empty .e-sub  { font-size: 11px; margin-top: 6px; }
+
+    /* ── LOADING ── */
+    #loading-screen {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 14px; z-index: 999;
+    }
+    #loading-screen .l-icon { font-size: 44px; }
+    #loading-screen .l-text { font-family: var(--mono); font-size: 13px; color: var(--green); letter-spacing: 3px; }
+    #loading-screen .l-sub  { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+    #loading-screen .l-bar  { width: 120px; height: 3px; background: rgba(74,222,128,0.15); border-radius: 2px; overflow: hidden; }
+    #loading-screen .l-fill { height: 100%; background: var(--green); border-radius: 2px; animation: loadbar 1.5s ease infinite; }
+    @keyframes loadbar { 0%{width:0%} 60%{width:90%} 100%{width:100%} }
+
+    /* ── TODAY BOX ── */
+    .today-box   { border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+    .today-total { font-family: var(--mono); font-size: 28px; font-weight: bold; color: var(--green); margin: 4px 0 6px; }
+    .today-sub   { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+    .pending-amount { font-family: var(--mono); font-size: 28px; font-weight: bold; color: white; margin: 4px 0 10px; }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(74,222,128,0.2); border-radius: 2px; }
+
+    @media (min-width: 480px) {
+      #app { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loading-screen">
+  <div class="l-icon">🔥</div>
+  <div class="l-text">LASA CASH CONTROL</div>
+  <div class="l-bar"><div class="l-fill"></div></div>
+  <div class="l-sub">loading shared data...</div>
+</div>
+
+<div id="app" style="display:none;">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-wrap">
+      <div class="logo-box">
+        <span>LASA</span>
+        <span>CASH</span>
+      </div>
+      <div class="logo-text">
+        <h1>CASH CONTROL</h1>
+        <p>PROFIT FIRST · LIVE SYNC</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="today-badge" id="today-badge">R0.00 today</div>
+      <button class="sync-btn" id="sync-btn" onclick="refreshData()">
+        <span id="sync-icon">↻</span>
+        <span id="sync-text">tap to sync</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Shared Banner -->
+  <div class="shared-banner">
+    🔗 Shared — all devices see the same sales in real time
+  </div>
+
+  <!-- Overdue Banner -->
+  <div class="overdue-banner" id="overdue-banner">
+    ⚠️ WEEKLY ALLOCATION OVERDUE — Record a sale to see details
+  </div>
+
+  <!-- Nav -->
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showView('dashboard')" id="nav-dashboard">
+      <span class="nav-icon">📊</span>Overview
+    </button>
+    <button class="nav-btn" onclick="showView('record')" id="nav-record">
+      <span class="nav-icon">➕</span>Record
+    </button>
+    <button class="nav-btn" onclick="showView('accounts')" id="nav-accounts">
+      <span class="nav-icon">🏦</span>Accounts
+    </button>
+    <button class="nav-btn" onclick="showView('history')" id="nav-history">
+      <span class="nav-icon">📋</span>History
+    </button>
+  </nav>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="view active" id="view-dashboard">
+      <div style="margin-bottom:16px;">
+        <div style="font-size:18px;font-weight:900;margin-bottom:2px;">Good day 👋</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);" id="dash-subtitle">0 total sales</div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="stat-val" id="stat-total" style="color:var(--green);">R0.00</div>
+          <div class="stat-lbl">ALL SALES</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="stat-card" style="color:var(--blue);">R0.00</div>
+          <div class="stat-lbl">💳 CARD</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="stat-cash" style="color:var(--orange);">R0.00</div>
+          <div class="stat-lbl">💵 CASH</div>
+        </div>
+      </div>
+
+      <div class="today-box card-green" id="today-box" style="display:none;">
+        <div class="section-label">📅 TODAY</div>
+        <div class="today-total" id="today-total">R0.00</div>
+        <div class="today-sub" id="today-sub"></div>
+      </div>
+
+      <div class="card card-green" style="margin-bottom:12px;">
+        <div class="section-label">📊 PROFIT FIRST SPLIT</div>
+        <div id="pf-bars"></div>
+      </div>
+
+      <div class="card card-blue" style="margin-bottom:12px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--blue);font-weight:bold;margin-bottom:4px;">💡 PENDING IN INCOME</div>
+        <div class="pending-amount" id="pending-amount">R0.00</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:12px;">Move into your 4 Capitec sub-accounts every week</div>
+        <button class="btn-blue" onclick="confirmWeeklyAllocation()">↻ Run Weekly Allocation</button>
+      </div>
+
+      <div id="last-alloc-info" style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;margin-top:-6px;margin-bottom:14px;"></div>
+
+      <div class="card">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:10px;">⚠️ GOLDEN RULES</div>
+        <div class="rule-row"><span class="rule-arrow">→</span>All cash goes into INCOME first — never spend directly</div>
+        <div class="rule-row"><span class="rule-arrow">→</span>Only pay stock &amp; expenses from the EXPENSES account</div>
+        <div class="rule-row"><span class="rule-arrow">→</span>Pay yourself from OWNER PAY only</div>
+        <div class="rule-row"><span class="rule-arrow">→</span>Never touch PROFIT — quarterly reward only</div>
+        <div class="rule-row"><span class="rule-arrow">→</span><strong style="color:var(--red)">Run weekly allocation every Sunday without fail</strong></div>
+      </div>
+    </div>
+
+    <!-- RECORD SALE -->
+    <div class="view" id="view-record">
+      <!-- Locked overlay — shown when allocation is overdue -->
+      <div id="locked-record">
+        <div class="lock-icon">🔒</div>
+        <div class="lock-title">RECORDING BLOCKED</div>
+        <div class="lock-body" id="lock-body-text">
+          Your weekly allocation is overdue.<br>
+          You cannot record new sales until you<br>
+          allocate last week's income first.
+        </div>
+        <button class="btn-red" onclick="showView('accounts');setTimeout(confirmWeeklyAllocation,200)">
+          ↻ Go Allocate Now
+        </button>
+      </div>
+
+      <!-- Normal record form — hidden when locked -->
+      <div id="record-form">
+        <div style="font-size:18px;font-weight:900;margin-bottom:3px;">Record a Sale</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:20px;">Saves instantly for all devices 🔄</div>
+
+        <label class="form-label">SALE AMOUNT (R) *</label>
+        <input class="amount-input" type="number" inputmode="decimal" id="amount-input" placeholder="0.00" oninput="updatePreview()" />
+
+        <label class="form-label">PAYMENT TYPE</label>
+        <div class="type-grid">
+          <button class="type-btn active" id="btn-card" onclick="setType('card')">💳 Card / Swipe</button>
+          <button class="type-btn" id="btn-cash" onclick="setType('cash')">💵 Cash</button>
+        </div>
+
+        <label class="form-label">CUSTOMER NAME (optional)</label>
+        <input class="note-input" type="text" id="customer-name-input" placeholder="e.g. Sipho Dlamini" style="margin-bottom:10px;" />
+
+        <label class="form-label">CELL NUMBER (optional)</label>
+        <input class="note-input" type="tel" id="customer-cell-input" placeholder="e.g. 082 123 4567" style="margin-bottom:10px;" inputmode="tel" />
+
+        <label class="form-label">NOTE (optional)</label>
+        <input class="note-input" type="text" id="note-input" placeholder="e.g. 2x chicken &amp; chips" />
+
+        <div class="split-preview" id="split-preview" style="display:none;">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">PROFIT FIRST PREVIEW</div>
+          <div class="split-row"><span style="color:var(--orange);">🛒 EXPENSES (50%)</span><span id="prev-exp" style="color:var(--orange);font-weight:bold;">R0.00</span></div>
+          <div class="split-row"><span style="color:var(--blue);">👤 OWNER PAY (25%)</span><span id="prev-own" style="color:var(--blue);font-weight:bold;">R0.00</span></div>
+          <div class="split-row"><span style="color:var(--purple);">📈 PROFIT (10%)</span><span id="prev-pro" style="color:var(--purple);font-weight:bold;">R0.00</span></div>
+          <div class="split-row"><span style="color:var(--pink);">🏛️ TAX (15%)</span><span id="prev-tax" style="color:var(--pink);font-weight:bold;">R0.00</span></div>
+        </div>
+
+        <button class="btn-primary" id="record-btn" onclick="recordSale()">
+          ＋ Record Sale
+        </button>
+      </div>
+    </div>
+
+    <!-- ACCOUNTS -->
+    <div class="view" id="view-accounts">
+      <div style="font-size:18px;font-weight:900;margin-bottom:3px;">Capitec Accounts</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:18px;">Your Profit First balances</div>
+      <div id="accounts-list"></div>
+      <div class="card" style="margin-top:6px;">
+        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;margin-bottom:6px;">
+          <span style="color:var(--muted);">Total allocated</span>
+          <span style="color:white;font-weight:bold;" id="total-allocated">R0.00</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;">
+          <span style="color:var(--muted);">Pending in INCOME</span>
+          <span style="color:var(--green);font-weight:bold;" id="total-pending">R0.00</span>
+        </div>
+      </div>
+      <button class="btn-secondary" style="margin-top:14px;" onclick="exportCSV()">⬇ Export All Sales to CSV</button>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="view" id="view-history">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div>
+          <div style="font-size:18px;font-weight:900;">Sales History</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);" id="history-count">0 transactions</div>
+        </div>
+        <button class="btn-secondary" style="width:auto;padding:7px 12px;font-size:10px;" onclick="exportCSV()">⬇ CSV</button>
+      </div>
+      <div id="history-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Sale Recorded Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-icon">✅</div>
+    <div class="modal-title">Sale Recorded!</div>
+    <div class="modal-sub">Synced to all devices. Profit First split:</div>
+    <div id="modal-rows"></div>
+    <div class="modal-tip">💡 Transfer these amounts in your Capitec app weekly</div>
+    <button class="btn-primary" onclick="closeModal()">Got it ✓</button>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal modal-danger">
+    <div class="modal-icon">🗑️</div>
+    <div class="modal-title red">Delete This Sale?</div>
+    <div class="modal-body" id="delete-modal-body"></div>
+    <div class="modal-btn-row">
+      <button class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn-confirm-red" onclick="confirmDelete()">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Weekly Allocation Confirm Modal -->
+<div class="modal-overlay" id="alloc-modal">
+  <div class="modal modal-warn">
+    <div class="modal-icon">⚡</div>
+    <div class="modal-title orange">Run Weekly Allocation?</div>
+    <div class="modal-body" id="alloc-modal-body"></div>
+    <div class="modal-btn-row">
+      <button class="btn-cancel" onclick="closeAllocModal()">Not Yet</button>
+      <button class="btn-confirm-alloc" onclick="confirmRunAllocation()">✓ Yes, Allocate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Allocation Overdue HARD BLOCK Modal -->
+<div class="modal-overlay" id="overdue-modal">
+  <div class="modal modal-danger">
+    <div class="modal-icon">🚨</div>
+    <div class="modal-title red">ALLOCATION OVERDUE</div>
+    <div class="modal-body" id="overdue-modal-body"></div>
+    <button class="btn-red" onclick="closeOverdueModal();showView('accounts');setTimeout(confirmWeeklyAllocation,300)">
+      🔓 Allocate Now to Unlock
+    </button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── CONFIG ────────────────────────────────────────────
+  const SUPABASE_URL = 'https://owwjslrpxtkfuhbratzk.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93d2pzbHJweHRrZnVoYnJhdHprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MzExNTUsImV4cCI6MjA5NjAwNzE1NX0.BvqwYQ2i8398XsyN21dViFC8xs7VpOcUX0rHLqS2Ip8';
+  const HEADERS = { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` };
+
+  const ACCOUNTS = [
+    { id:'income',   label:'INCOME',    emoji:'💰', pct:100, color:'#4ade80', desc:'All sales land here first' },
+    { id:'expenses', label:'EXPENSES',  emoji:'🛒', pct:50,  color:'#fb923c', desc:'Stock, ingredients, gas, bread' },
+    { id:'owner',    label:'OWNER PAY', emoji:'👤', pct:25,  color:'#60a5fa', desc:'Your weekly salary' },
+    { id:'profit',   label:'PROFIT',    emoji:'📈', pct:10,  color:'#a78bfa', desc:'Business savings — do not touch' },
+    { id:'tax',      label:'TAX',       emoji:'🏛️', pct:15,  color:'#f472b6', desc:'Set aside for SARS' },
+  ];
+
+  const fmt = n => `R${Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+  const today = () => new Date().toLocaleDateString('en-ZA');
+
+  let sales = [];
+  let balances = { income:0, expenses:0, owner:0, profit:0, tax:0 };
+  let payType = 'card';
+  let syncing = false;
+  let pendingDeleteId = null;
+
+  // ── WEEKLY ALLOCATION ENFORCEMENT ─────────────────────
+  const ALLOC_OVERDUE_DAYS = 7; // block after 7 days without allocation
+
+  function getLastAllocDate() {
+    return localStorage.getItem('lasa-last-alloc-date') || null;
+  }
+
+  function setLastAllocDate() {
+    localStorage.setItem('lasa-last-alloc-date', new Date().toISOString());
+  }
+
+  function daysSinceLastAlloc() {
+    const d = getLastAllocDate();
+    if (!d) return 999;
+    const diff = Date.now() - new Date(d).getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
+  }
+
+  function isAllocationOverdue() {
+    // Overdue if: income balance > 0 AND it's been 7+ days since last allocation
+    const days = daysSinceLastAlloc();
+    return days >= ALLOC_OVERDUE_DAYS && balances.income > 0;
+  }
+
+  function updateOverdueBanner() {
+    const banner = document.getElementById('overdue-banner');
+    const lockedEl = document.getElementById('locked-record');
+    const formEl = document.getElementById('record-form');
+    const days = daysSinceLastAlloc();
+    const overdue = isAllocationOverdue();
+
+    if (overdue) {
+      banner.textContent = `🚨 ALLOCATION ${days} DAYS OVERDUE — Recording is LOCKED until you allocate`;
+      banner.classList.add('show');
+      lockedEl.classList.add('show');
+      formEl.style.display = 'none';
+      document.getElementById('lock-body-text').innerHTML =
+        `It has been <strong style="color:#ff6b6b">${days} days</strong> since your last allocation.<br>
+        You MUST allocate before recording more sales.<br><br>
+        Pending income: <strong style="color:#ff6b6b">${fmt(balances.income)}</strong>`;
+    } else {
+      banner.classList.remove('show');
+      lockedEl.classList.remove('show');
+      formEl.style.display = 'block';
+    }
+
+    // Last alloc info text
+    const infoEl = document.getElementById('last-alloc-info');
+    const d = getLastAllocDate();
+    if (d) {
+      const ago = days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+      infoEl.textContent = `Last allocated: ${ago}`;
+      infoEl.style.color = overdue ? '#ef4444' : 'var(--muted)';
+    } else {
+      infoEl.textContent = 'No allocation done yet';
+      infoEl.style.color = balances.income > 0 ? '#ef4444' : 'var(--muted)';
+    }
+  }
+
+  // ── SUPABASE ──────────────────────────────────────────
+  async function fetchSales() {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/sales?order=created_at.desc&limit=500`, { headers: HEADERS });
+    if (!r.ok) throw new Error('fetch failed');
+    return r.json();
+  }
+
+  async function insertSale(sale) {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/sales`, {
+      method: 'POST',
+      headers: { ...HEADERS, 'Prefer': 'return=minimal' },
+      body: JSON.stringify(sale),
+    });
+    if (!r.ok) throw new Error('insert failed');
+  }
+
+  async function deleteSaleById(id) {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/sales?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: HEADERS,
+    });
+    if (!r.ok) throw new Error('delete failed');
+  }
+
+  // ── LOAD ─────────────────────────────────────────────
+  async function refreshData(quiet = false) {
+    if (syncing) return;
+    syncing = true;
+    setSyncState(true);
+    try {
+      sales = await fetchSales();
+      recalcBalances();
+      renderAll();
+      setSyncState(false, new Date().toLocaleTimeString('en-ZA', {hour:'2-digit',minute:'2-digit'}));
+    } catch(e) {
+      setSyncState(false);
+      showToast('Sync failed — check internet', 'error');
+    }
+    syncing = false;
+  }
+
+  function recalcBalances() {
+    const totalRev = sales.reduce((a, s) => a + parseFloat(s.amount), 0);
+    const allocated = JSON.parse(localStorage.getItem('lasa-allocated') || '{"expenses":0,"owner":0,"profit":0,"tax":0,"income_cleared":0}');
+    balances = {
+      income:   Math.max(0, +(totalRev - allocated.income_cleared).toFixed(2)),
+      expenses: +allocated.expenses.toFixed(2),
+      owner:    +allocated.owner.toFixed(2),
+      profit:   +allocated.profit.toFixed(2),
+      tax:      +allocated.tax.toFixed(2),
+    };
+  }
+
+  function saveAllocated() {
+    const a = { expenses: balances.expenses, owner: balances.owner, profit: balances.profit, tax: balances.tax, income_cleared: 0 };
+    const totalRev = sales.reduce((s, x) => s + parseFloat(x.amount), 0);
+    a.income_cleared = totalRev - balances.income;
+    localStorage.setItem('lasa-allocated', JSON.stringify(a));
+  }
+
+  // ── RECORD SALE ───────────────────────────────────────
+  async function recordSale() {
+    // Hard enforcement check
+    if (isAllocationOverdue()) {
+      showOverdueModal();
+      return;
+    }
+
+    const amt = parseFloat(document.getElementById('amount-input').value);
+    if (!amt || amt <= 0) return showToast('Enter a valid amount', 'error');
+    const note = document.getElementById('note-input').value.trim();
+    const customerName = document.getElementById('customer-name-input').value.trim();
+    const customerCell = document.getElementById('customer-cell-input').value.trim();
+    const splits = calcSplits(amt);
+    const now = new Date();
+    const sale = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+      date: now.toLocaleDateString('en-ZA'),
+      time: now.toLocaleTimeString('en-ZA', {hour:'2-digit',minute:'2-digit'}),
+      type: payType,
+      amount: amt,
+      note: note || null,
+      customer_name: customerName || null,
+      customer_cell: customerCell || null,
+      splits,
+    };
+    const btn = document.getElementById('record-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Saving...';
+    try {
+      await insertSale(sale);
+      sales.unshift(sale);
+      balances.income = +(balances.income + amt).toFixed(2);
+      renderAll();
+      document.getElementById('amount-input').value = '';
+      document.getElementById('note-input').value = '';
+      document.getElementById('customer-name-input').value = '';
+      document.getElementById('customer-cell-input').value = '';
+      document.getElementById('split-preview').style.display = 'none';
+      showModal(splits);
+    } catch(e) {
+      showToast('Failed to save — check internet', 'error');
+    }
+    btn.disabled = false;
+    btn.innerHTML = '＋ Record Sale';
+  }
+
+  function calcSplits(amt) {
+    return {
+      income:   amt,
+      expenses: +(amt * 0.50).toFixed(2),
+      owner:    +(amt * 0.25).toFixed(2),
+      profit:   +(amt * 0.10).toFixed(2),
+      tax:      +(amt * 0.15).toFixed(2),
+    };
+  }
+
+  // ── DELETE SALE ───────────────────────────────────────
+  function promptDeleteSale(id) {
+    const sale = sales.find(s => s.id === id);
+    if (!sale) return;
+    pendingDeleteId = id;
+    document.getElementById('delete-modal-body').innerHTML =
+      `Amount: <strong style="color:#4ade80">${fmt(parseFloat(sale.amount))}</strong><br>
+       Date: ${sale.date} at ${sale.time}<br>
+       Type: ${sale.type === 'card' ? '💳 Card' : '💵 Cash'}
+       ${sale.note ? `<br>Note: ${sale.note}` : ''}<br><br>
+       <span style="color:#ef4444">This cannot be undone.</span>`;
+    document.getElementById('delete-modal').classList.add('open');
+  }
+
+  function closeDeleteModal() {
+    pendingDeleteId = null;
+    document.getElementById('delete-modal').classList.remove('open');
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteId) return;
+    const id = pendingDeleteId;
+    closeDeleteModal();
+    try {
+      await deleteSaleById(id);
+      sales = sales.filter(s => s.id !== id);
+      recalcBalances();
+      renderAll();
+      showToast('Sale deleted ✓', 'success');
+    } catch(e) {
+      showToast('Delete failed — check internet', 'error');
+    }
+  }
+
+  // ── WEEKLY ALLOCATION ─────────────────────────────────
+  function confirmWeeklyAllocation() {
+    const inc = balances.income;
+    if (inc <= 0) return showToast('No income to allocate yet', 'error');
+    const splits = calcSplits(inc);
+    document.getElementById('alloc-modal-body').innerHTML =
+      `You are about to allocate <strong style="color:#fb923c">${fmt(inc)}</strong> from your Income account.<br><br>
+       🛒 Expenses (50%): <strong>${fmt(splits.expenses)}</strong><br>
+       👤 Owner Pay (25%): <strong>${fmt(splits.owner)}</strong><br>
+       📈 Profit (10%): <strong>${fmt(splits.profit)}</strong><br>
+       🏛️ Tax (15%): <strong>${fmt(splits.tax)}</strong><br><br>
+       <span style="color:var(--orange)">Transfer these amounts physically in your Capitec app after confirming.</span>`;
+    document.getElementById('alloc-modal').classList.add('open');
+  }
+
+  function closeAllocModal() {
+    document.getElementById('alloc-modal').classList.remove('open');
+  }
+
+  function confirmRunAllocation() {
+    closeAllocModal();
+    doWeeklyAllocation();
+  }
+
+  function doWeeklyAllocation() {
+    const inc = balances.income;
+    if (inc <= 0) return showToast('No income to allocate yet', 'error');
+    balances.income   = 0;
+    balances.expenses = +(balances.expenses + inc * 0.50).toFixed(2);
+    balances.owner    = +(balances.owner    + inc * 0.25).toFixed(2);
+    balances.profit   = +(balances.profit   + inc * 0.10).toFixed(2);
+    balances.tax      = +(balances.tax      + inc * 0.15).toFixed(2);
+    saveAllocated();
+    setLastAllocDate();
+    renderAll();
+    showToast(`${fmt(inc)} allocated across 4 accounts ✅`);
+  }
+
+  // ── OVERDUE HARD BLOCK ────────────────────────────────
+  function showOverdueModal() {
+    const days = daysSinceLastAlloc();
+    document.getElementById('overdue-modal-body').innerHTML =
+      `It has been <strong style="color:#ff6b6b">${days} days</strong> since you last allocated funds.<br><br>
+       You have <strong style="color:#ff6b6b">${fmt(balances.income)}</strong> sitting unallocated in INCOME.<br><br>
+       <strong style="color:#ffaaaa">The system will NOT let you record sales until this is done.</strong><br><br>
+       Go allocate now — it takes 30 seconds.`;
+    document.getElementById('overdue-modal').classList.add('open');
+  }
+
+  function closeOverdueModal() {
+    document.getElementById('overdue-modal').classList.remove('open');
+  }
+
+  // ── RENDER ────────────────────────────────────────────
+  function renderAll() {
+    const totalRev   = sales.reduce((a, s) => a + parseFloat(s.amount), 0);
+    const cardTotal  = sales.filter(s => s.type === 'card').reduce((a, s) => a + parseFloat(s.amount), 0);
+    const cashTotal  = sales.filter(s => s.type === 'cash').reduce((a, s) => a + parseFloat(s.amount), 0);
+    const todaySales = sales.filter(s => s.date === today());
+    const todayTotal = todaySales.reduce((a, s) => a + parseFloat(s.amount), 0);
+
+    document.getElementById('today-badge').textContent = `${fmt(todayTotal)} today`;
+
+    document.getElementById('stat-total').textContent = fmt(totalRev);
+    document.getElementById('stat-card').textContent  = fmt(cardTotal);
+    document.getElementById('stat-cash').textContent  = fmt(cashTotal);
+    document.getElementById('dash-subtitle').textContent = `${sales.length} total sale${sales.length !== 1 ? 's' : ''}`;
+
+    const todayBox = document.getElementById('today-box');
+    if (todaySales.length > 0) {
+      todayBox.style.display = 'block';
+      document.getElementById('today-total').textContent = fmt(todayTotal);
+      document.getElementById('today-sub').textContent =
+        `${todaySales.length} sale${todaySales.length !== 1 ? 's' : ''} · ${fmt(todaySales.filter(s=>s.type==='card').reduce((a,s)=>a+parseFloat(s.amount),0))} card · ${fmt(todaySales.filter(s=>s.type==='cash').reduce((a,s)=>a+parseFloat(s.amount),0))} cash`;
+    } else {
+      todayBox.style.display = 'none';
+    }
+
+    const pfBars = document.getElementById('pf-bars');
+    pfBars.innerHTML = ACCOUNTS.filter(a => a.id !== 'income').map(a => {
+      const amount = totalRev * (a.pct / 100);
+      return `<div class="pf-row">
+        <div class="pf-row-top">
+          <span class="pf-label" style="color:${a.color}">${a.emoji} ${a.label} (${a.pct}%)</span>
+          <span class="pf-amount" style="color:${a.color}">${fmt(amount)}</span>
+        </div>
+        <div class="pf-bar-bg"><div class="pf-bar" style="width:${a.pct * 2}%;background:${a.color}"></div></div>
+      </div>`;
+    }).join('');
+
+    document.getElementById('pending-amount').textContent = fmt(balances.income);
+
+    const totalAllocated = balances.expenses + balances.owner + balances.profit + balances.tax;
+    document.getElementById('accounts-list').innerHTML = ACCOUNTS.map(a => `
+      <div class="account-card" style="border-left-color:${a.color}">
+        <div class="account-info">
+          <h3 style="color:${a.color}">${a.emoji} ${a.label}
+            <span class="account-pct" style="color:${a.color};border-color:${a.color}44;background:${a.color}11">${a.pct}%</span>
+          </h3>
+          <p>${a.desc}</p>
+        </div>
+        <div class="account-amount" style="color:${a.color}">${fmt(balances[a.id])}</div>
+      </div>
+    `).join('');
+    document.getElementById('total-allocated').textContent = fmt(totalAllocated);
+    document.getElementById('total-pending').textContent   = fmt(balances.income);
+
+    document.getElementById('history-count').textContent = `${sales.length} transaction${sales.length !== 1 ? 's' : ''}`;
+    if (sales.length === 0) {
+      document.getElementById('history-list').innerHTML = `
+        <div class="empty">
+          <div class="e-icon">📋</div>
+          <div>No sales recorded yet</div>
+          <div class="e-sub">Tap ➕ Record to add the first sale</div>
+        </div>`;
+    } else {
+      document.getElementById('history-list').innerHTML = sales.map(s => {
+        const sp = s.splits || calcSplits(parseFloat(s.amount));
+        const safeId = s.id.replace(/'/g, "\\'");
+        return `<div class="history-item">
+          <div class="history-top">
+            <div>
+              <div class="history-amount">${fmt(parseFloat(s.amount))}</div>
+              <div class="history-meta">${s.date} at ${s.time}</div>
+              ${s.customer_name ? `<div class="history-note">👤 ${s.customer_name}${s.customer_cell ? ` · 📞 ${s.customer_cell}` : ''}</div>` : ''}
+              ${s.note ? `<div class="history-note">📝 ${s.note}</div>` : ''}
+            </div>
+            <div class="history-right">
+              <div class="type-pill ${s.type}">${s.type === 'card' ? '💳 Card' : '💵 Cash'}</div>
+              <button class="btn-ghost-red" onclick="promptDeleteSale('${safeId}')">🗑 Delete</button>
+            </div>
+          </div>
+          <div class="splits-mini">
+            ${ACCOUNTS.filter(a=>a.id!=='income').map(a=>`
+              <div class="split-mini-box" style="background:${a.color}11">
+                <div class="s-label" style="color:${a.color}">${a.label.split(' ')[0]}</div>
+                <div class="s-val" style="color:${a.color}">${fmt(parseFloat(sp[a.id]||0))}</div>
+              </div>`).join('')}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // Update enforcement UI
+    updateOverdueBanner();
+  }
+
+  // ── UI HELPERS ────────────────────────────────────────
+  function showView(v) {
+    document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(`view-${v}`).classList.add('active');
+    document.getElementById(`nav-${v}`).classList.add('active');
+  }
+
+  function setType(t) {
+    payType = t;
+    document.getElementById('btn-card').className = 'type-btn' + (t === 'card' ? ' active' : '');
+    document.getElementById('btn-cash').className = 'type-btn' + (t === 'cash' ? ' active' : '');
+  }
+
+  function updatePreview() {
+    const amt = parseFloat(document.getElementById('amount-input').value);
+    const preview = document.getElementById('split-preview');
+    if (!amt || amt <= 0) { preview.style.display = 'none'; return; }
+    preview.style.display = 'block';
+    document.getElementById('prev-exp').textContent = fmt(amt * 0.50);
+    document.getElementById('prev-own').textContent = fmt(amt * 0.25);
+    document.getElementById('prev-pro').textContent = fmt(amt * 0.10);
+    document.getElementById('prev-tax').textContent = fmt(amt * 0.15);
+  }
+
+  function showModal(splits) {
+    document.getElementById('modal-rows').innerHTML = ACCOUNTS.filter(a=>a.id!=='income').map(a=>`
+      <div class="modal-alloc-row" style="background:${a.color}11;border:1px solid ${a.color}33">
+        <div class="modal-alloc-left">
+          <span style="font-size:18px">${a.emoji}</span>
+          <div>
+            <div class="modal-alloc-name" style="color:${a.color}">${a.label}</div>
+            <div class="modal-alloc-sub">Capitec sub-account</div>
+          </div>
+        </div>
+        <div class="modal-alloc-amt" style="color:${a.color}">${fmt(splits[a.id])}</div>
+      </div>`).join('');
+    document.getElementById('modal').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.remove('open');
+  }
+
+  function setSyncState(active, time) {
+    const btn  = document.getElementById('sync-btn');
+    const icon = document.getElementById('sync-icon');
+    const txt  = document.getElementById('sync-text');
+    if (active) {
+      btn.classList.add('syncing');
+      icon.className = 'spinning';
+      icon.textContent = '↻';
+      txt.textContent = 'syncing...';
+    } else {
+      btn.classList.remove('syncing');
+      icon.className = '';
+      icon.textContent = '↻';
+      txt.textContent = time ? `synced ${time}` : 'tap to sync';
+    }
+  }
+
+  let toastTimer;
+  function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  function exportCSV() {
+    const header = ['Date','Time','Type','Amount','Customer Name','Cell Number','Note','Expenses','Owner Pay','Profit','Tax'];
+    const rows = sales.map(s => {
+      const sp = s.splits || calcSplits(parseFloat(s.amount));
+      return [s.date, s.time, s.type, parseFloat(s.amount).toFixed(2),
+        `"${s.customer_name||''}"`, `"${s.customer_cell||''}"`, `"${s.note||''}"`,
+        parseFloat(sp.expenses).toFixed(2), parseFloat(sp.owner).toFixed(2),
+        parseFloat(sp.profit).toFixed(2), parseFloat(sp.tax).toFixed(2)];
+    });
+    const csv = [header,...rows].map(r=>r.join(',')).join('\n');
+    const blob = new Blob([csv],{type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download='LASA_Sales.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── INIT ──────────────────────────────────────────────
+  async function init() {
+    await refreshData();
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    setInterval(() => refreshData(true), 30000);
+  }
+
+  init();
+</script>
+</body>
+</html>
